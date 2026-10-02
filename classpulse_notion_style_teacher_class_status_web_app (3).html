@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClassPulse - Teacher Class Status</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        notion: {
+                            bg: '#FBFBFA',
+                            darkBg: '#191919',
+                            card: '#FFFFFF',
+                            darkCard: '#202020',
+                            border: '#E9E9E7',
+                            darkBorder: '#2F2F2F',
+                            text: '#37352F',
+                            darkText: '#D4D4D4',
+                            muted: '#787774',
+                            darkMuted: '#9B9B9B',
+                            hover: '#F1F1EF',
+                            darkHover: '#2A2A2A',
+                            accent: '#2EAADC'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Subtle smooth transitions */
+        .transition-notion {
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Card appearing & entrance keyframes */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .animate-appear {
+            animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Pulse badge effect */
+        @keyframes subtlePulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.96); }
+        }
+
+        .pulse-live {
+            animation: subtlePulse 2.5s infinite ease-in-out;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #E1E1DE;
+            border-radius: 9999px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #333333;
+        }
+    </style>
+</head>
+<body class="bg-notion-bg dark:bg-notion-darkBg text-notion-text dark:text-notion-darkText min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- INITIAL APP LOADING OVERLAY -->
+    <div id="appLoader" class="fixed inset-0 z-50 bg-white dark:bg-notion-darkBg flex flex-col items-center justify-center transition-opacity duration-300">
+        <div class="max-w-xs w-full px-6 text-center space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center mx-auto text-xl font-bold shadow-lg">
+                ⚡
+            </div>
+            <div>
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight">ClassPulse</h2>
+                <p class="text-xs text-notion-muted dark:text-notion-darkMuted mt-0.5">Initializing schedule & view analytics...</p>
+            </div>
+            
+            <!-- Progress Percentage and Bar -->
+            <div class="space-y-1.5 pt-2">
+                <div class="flex justify-between items-center text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <span>Loading</span>
+                    <span id="loaderPercentText">1%</span>
+                </div>
+                <div class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div id="loaderProgressBar" class="h-full bg-slate-900 dark:bg-white rounded-full transition-all duration-75 w-[1%]"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP NAVIGATION / BRAND BAR -->
+    <header class="sticky top-0 z-30 bg-notion-bg/90 dark:bg-notion-darkBg/90 backdrop-blur-md border-b border-notion-border dark:border-notion-darkBorder transition-colors">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <!-- Brand & Route Indicator -->
+            <div class="flex items-center space-x-3">
+                <a href="#" onclick="switchRoute('student')" class="group flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center font-bold text-base shadow-sm group-hover:scale-105 transition-transform">
+                        ⚡
+                    </div>
+                    <div>
+                        <span class="font-semibold text-base tracking-tight group-hover:text-black dark:group-hover:text-white transition-colors">ClassPulse</span>
+                        <span class="text-xs text-notion-muted dark:text-notion-darkMuted hidden sm:inline-block ml-2 border-l border-notion-border dark:border-notion-darkBorder pl-2">Live Teacher Status</span>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Header Actions: Active Visitors + Total Views + Theme Toggle -->
+            <div class="flex items-center space-x-2">
+                <!-- Live Visitors Badge -->
+                <div title="Active students right now" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/50">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-live"></span>
+                    <span id="headerLiveVisitorCount" class="font-bold">1</span>
+                    <span class="hidden sm:inline">Online</span>
+                </div>
+
+                <!-- Total Views Badge -->
+                <div title="Total visits across all time" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/50">
+                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                    <span id="headerTotalViewsCount" class="font-bold">0</span>
+                    <span class="hidden sm:inline">Views</span>
+                </div>
+
+                <!-- Admin / Student Switcher Toggle -->
+                <div class="bg-notion-hover dark:bg-notion-darkHover p-0.5 rounded-lg border border-notion-border dark:border-notion-darkBorder flex items-center">
+                    <button id="navStudentBtn" onclick="switchRoute('student')" class="px-3 py-1 text-xs font-medium rounded-md transition-notion text-slate-900 dark:text-white bg-white dark:bg-notion-darkCard shadow-xs">
+                        Student View
+                    </button>
+                    <button id="navAdminBtn" onclick="switchRoute('admin')" class="px-3 py-1 text-xs font-medium rounded-md transition-notion text-notion-muted dark:text-notion-darkMuted hover:text-slate-900 dark:hover:text-white">
+                        Admin Portal
+                    </button>
+                </div>
+
+                <!-- Theme Toggle -->
+                <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-notion-hover dark:hover:bg-notion-darkHover text-notion-muted dark:text-notion-darkMuted hover:text-slate-900 dark:hover:text-white transition-colors" title="Toggle Light/Dark Theme">
+                    <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
+                    <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT WRAPPER -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 md:py-8">
+
+        <!-- ========================================== -->
+        <!-- PUBLIC STUDENT DASHBOARD VIEW (`/`)        -->
+        <!-- ========================================== -->
+        <section id="studentView" class="space-y-6 animate-appear">
+            <!-- Header Banner with Automatic Date Calculation -->
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2 border-b border-notion-border dark:border-notion-darkBorder">
+                <div>
+                    <div class="inline-flex items-center space-x-2 text-xs font-medium text-notion-muted dark:text-notion-darkMuted mb-1">
+                        <span>Campus Live Dashboard</span>
+                        <span>•</span>
+                        <span id="lastUpdatedTime">Updated just now</span>
+                    </div>
+                    <!-- Heading with dynamic date after 5:00 PM -->
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex flex-wrap items-center gap-2">
+                        <span>Who's coming to class for</span>
+                        <span id="headingDateBadge" class="text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/50 px-2.5 py-0.5 rounded-xl border border-sky-200 dark:border-sky-800/60 font-extrabold text-xl sm:text-2xl">
+                            Loading date...
+                        </span>
+                        <span>?</span>
+                    </h1>
+                    <p id="scheduleRolloverNotice" class="text-xs text-notion-muted dark:text-notion-darkMuted mt-1">
+                        Real-time status updates from teachers and faculty departments.
+                    </p>
+                </div>
+
+                <!-- Action Controls: Manual Refresh -->
+                <div class="flex items-center space-x-2">
+                    <button onclick="refreshData(true)" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-notion-darkCard border border-notion-border dark:border-notion-darkBorder hover:bg-notion-hover dark:hover:bg-notion-darkHover transition-notion shadow-xs">
+                        <i data-lucide="refresh-cw" id="refreshIcon" class="w-3.5 h-3.5 text-notion-muted"></i>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- DATE FILTER BAR -->
+            <div class="bg-white dark:bg-notion-darkCard p-3 rounded-2xl border border-notion-border dark:border-notion-darkBorder flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-xs">
+                <!-- Date Filter Selector Buttons -->
+                <div class="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0">
+                    <span class="text-xs font-semibold text-notion-muted whitespace-nowrap flex items-center space-x-1">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                        <span>View Date:</span>
+                    </span>
+                    <button id="dateFilterAutoBtn" onclick="setDateFilterMode('auto')" class="px-3 py-1 rounded-lg text-xs font-medium transition-notion bg-slate-900 text-white dark:bg-white dark:text-slate-900">
+                        Default (<span id="autoFilterLabel">Today</span>)
+                    </button>
+                    <button id="dateFilterTodayBtn" onclick="setDateFilterMode('today')" class="px-3 py-1 rounded-lg text-xs font-medium transition-notion bg-notion-hover dark:bg-notion-darkHover text-notion-muted hover:text-slate-900 dark:hover:text-white">
+                        Today
+                    </button>
+                    <button id="dateFilterTomorrowBtn" onclick="setDateFilterMode('tomorrow')" class="px-3 py-1 rounded-lg text-xs font-medium transition-notion bg-notion-hover dark:bg-notion-darkHover text-notion-muted hover:text-slate-900 dark:hover:text-white">
+                        Tomorrow
+                    </button>
+                </div>
+
+                <!-- Custom Date Input -->
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-notion-muted whitespace-nowrap">Pick Date:</span>
+                    <input type="date" id="studentCustomDatePicker" onchange="handleCustomDateChange(this.value)" class="px-2.5 py-1 text-xs rounded-lg bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400">
+                </div>
+            </div>
+
+            <!-- SEARCH AND STATUS FILTERS BAR -->
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                <!-- Search Box -->
+                <div class="relative md:col-span-5">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-notion-muted dark:text-notion-darkMuted"></i>
+                    <input 
+                        type="text" 
+                        id="studentSearchInput" 
+                        oninput="handleSearchFilter()" 
+                        placeholder="Search teacher name, subject, or room..." 
+                        class="w-full pl-9 pr-4 py-2 text-sm rounded-xl bg-white dark:bg-notion-darkCard border border-notion-border dark:border-notion-darkBorder focus:outline-none focus:ring-2 focus:ring-slate-400 dark:focus:ring-slate-600 transition-all text-slate-900 dark:text-slate-100 placeholder:text-notion-muted"
+                    >
+                </div>
+
+                <!-- Status Filter Pills -->
+                <div id="statusFilterPills" class="md:col-span-7 flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
+                    <!-- Dynamic Pills rendered via JS -->
+                </div>
+            </div>
+
+            <!-- TEACHER CARDS CONTAINER -->
+            <div id="teacherCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Teacher Cards generated dynamically -->
+            </div>
+
+            <!-- Empty Search State -->
+            <div id="emptySearchState" class="hidden py-16 text-center bg-white dark:bg-notion-darkCard rounded-2xl border border-notion-border dark:border-notion-darkBorder p-8">
+                <div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3 text-notion-muted">
+                    <i data-lucide="search-x" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-base font-semibold text-slate-900 dark:text-white">No teachers found</h3>
+                <p class="text-xs text-notion-muted dark:text-notion-darkMuted mt-1 max-w-sm mx-auto">
+                    We couldn't find any teacher matching your criteria for the selected date.
+                </p>
+                <button onclick="resetSearchAndFilters()" class="mt-4 px-4 py-1.5 rounded-lg text-xs font-medium bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:opacity-90 transition-opacity">
+                    Reset Filters
+                </button>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- PROTECTED ADMIN DASHBOARD VIEW (`/admin`)  -->
+        <!-- ========================================== -->
+        <section id="adminView" class="hidden space-y-6 animate-appear">
+
+            <!-- ADMIN AUTH LOGIN FORM (Shown when unauthenticated) -->
+            <div id="adminLoginForm" class="max-w-md mx-auto my-12 bg-white dark:bg-notion-darkCard border border-notion-border dark:border-notion-darkBorder rounded-2xl p-6 md:p-8 shadow-notion">
+                <div class="text-center mb-6">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center mx-auto mb-3 font-bold text-xl shadow-xs">
+                        🔐
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Admin Access</h2>
+                    <p class="text-xs text-notion-muted dark:text-notion-darkMuted mt-1">
+                        Log in with administrator credentials to manage teacher statuses & track traffic.
+                    </p>
+                </div>
+
+                <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-notion-muted dark:text-notion-darkMuted mb-1">Username</label>
+                        <input type="text" id="adminUser" required value="" class="w-full px-3.5 py-2 text-sm rounded-xl bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder focus:outline-none focus:ring-2 focus:ring-slate-400 text-slate-900 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-notion-muted dark:text-notion-darkMuted mb-1">Password</label>
+                        <input type="password" id="adminPass" required value="" class="w-full px-3.5 py-2 text-sm rounded-xl bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder focus:outline-none focus:ring-2 focus:ring-slate-400 text-slate-900 dark:text-white">
+                    </div>
+
+                    <div id="loginErrorMsg" class="hidden text-xs text-red-600 bg-red-50 dark:bg-red-950/40 dark:text-red-400 p-2.5 rounded-lg border border-red-200 dark:border-red-900">
+                        Invalid credentials.
+                    </div>
+
+                    <button type="submit" class="w-full py-2.5 rounded-xl font-medium text-xs bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90 transition-opacity shadow-xs">
+                        Sign In to Admin Portal
+                    </button>
+                </form>
+
+                <div class="mt-4 pt-4 border-t border-notion-border dark:border-notion-darkBorder text-center">
+                    <p class="text-[11px] text-notion-muted dark:text-notion-darkMuted">
+                        Default Credentials: <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded"></code> / <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded"></code>
+                    </p>
+                </div>
+            </div>
+
+            <!-- AUTHENTICATED ADMIN PANEL CONTENT -->
+            <div id="adminDashboardContent" class="hidden space-y-6">
+                <!-- Admin Top Bar -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-notion-border dark:border-notion-darkBorder">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300">Admin Mode</span>
+                            <span class="text-xs text-notion-muted">Authenticated Session</span>
+                        </div>
+                        <h1 class="text-2xl font-bold text-slate-900 dark:text-white mt-1">ClassPulse Management</h1>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick="openAddTeacherModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90 transition-notion shadow-xs">
+                            <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                            <span>Add Teacher</span>
+                        </button>
+                        <button onclick="handleAdminLogout()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-white dark:bg-notion-darkCard border border-notion-border dark:border-notion-darkBorder hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 transition-notion text-notion-muted">
+                            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                            <span>Logout</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ADMIN NAVIGATION SUB-TABS -->
+                <div class="flex items-center space-x-2 border-b border-notion-border dark:border-notion-darkBorder pb-2 overflow-x-auto">
+                    <button onclick="setAdminTab('teachers')" id="tabBtnTeachers" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-notion bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white">
+                        👨‍🏫 Teachers & Status Dates
+                    </button>
+                    <button onclick="setAdminTab('analytics')" id="tabBtnAnalytics" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-notion text-notion-muted hover:text-slate-900 dark:hover:text-white">
+                        📊 Visitor Traffic Analytics
+                    </button>
+                    <button onclick="setAdminTab('statuses')" id="tabBtnStatuses" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-notion text-notion-muted hover:text-slate-900 dark:hover:text-white">
+                        🏷️ Custom Statuses
+                    </button>
+                </div>
+
+                <!-- OVERVIEW STATISTICS COUNTERS -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3" id="adminStatsGrid">
+                    <!-- Rendered dynamically -->
+                </div>
+
+                <!-- TAB 1: TEACHER MANAGEMENT TABLE -->
+                <div id="adminTabTeachers" class="space-y-4">
+                    <div class="bg-white dark:bg-notion-darkCard rounded-2xl border border-notion-border dark:border-notion-darkBorder overflow-hidden shadow-notion">
+                        <div class="p-4 border-b border-notion-border dark:border-notion-darkBorder flex items-center justify-between">
+                            <h2 class="text-sm font-semibold text-slate-900 dark:text-white">All Faculty Members & Class Dates</h2>
+                            <span class="text-xs text-notion-muted" id="teacherCountBadge">0 Teachers</span>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-notion-bg dark:bg-notion-darkBg text-notion-muted dark:text-notion-darkMuted font-medium uppercase tracking-wider border-b border-notion-border dark:border-notion-darkBorder">
+                                    <tr>
+                                        <th class="py-3 px-4">Teacher Name</th>
+                                        <th class="py-3 px-4">Subject</th>
+                                        <th class="py-3 px-4">Room</th>
+                                        <th class="py-3 px-4">Effective Date</th>
+                                        <th class="py-3 px-4">Current Status</th>
+                                        <th class="py-3 px-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminTeacherTableBody" class="divide-y divide-notion-border dark:divide-notion-darkBorder text-slate-900 dark:text-slate-200">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: VISITOR TRAFFIC ANALYTICS & WEEKLY GRAPH -->
+                <div id="adminTabAnalytics" class="hidden space-y-6">
+                    <!-- Live Traffic Summary Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-white dark:bg-notion-darkCard p-4 rounded-2xl border border-notion-border dark:border-notion-darkBorder shadow-xs">
+                            <div class="flex items-center justify-between text-notion-muted dark:text-notion-darkMuted text-xs">
+                                <span class="font-medium">Total All-Time Views</span>
+                                <i data-lucide="eye" class="w-4 h-4 text-sky-500"></i>
+                            </div>
+                            <div class="mt-2 flex items-baseline space-x-2">
+                                <span id="analyticsTotalViews" class="text-3xl font-extrabold text-slate-900 dark:text-white">0</span>
+                                <span class="text-xs text-sky-600 dark:text-sky-400 font-semibold">Total</span>
+                            </div>
+                            <p class="text-[11px] text-notion-muted dark:text-notion-darkMuted mt-1">Total page views recorded across all visits</p>
+                        </div>
+
+                        <div class="bg-white dark:bg-notion-darkCard p-4 rounded-2xl border border-notion-border dark:border-notion-darkBorder shadow-xs">
+                            <div class="flex items-center justify-between text-notion-muted dark:text-notion-darkMuted text-xs">
+                                <span class="font-medium">Active Online Now</span>
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-live"></span>
+                            </div>
+                            <div class="mt-2 flex items-baseline space-x-2">
+                                <span id="analyticsActiveOnline" class="text-3xl font-extrabold text-slate-900 dark:text-white">1</span>
+                                <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Live</span>
+                            </div>
+                            <p class="text-[11px] text-notion-muted dark:text-notion-darkMuted mt-1">Active users on ClassPulse</p>
+                        </div>
+
+                        <div class="bg-white dark:bg-notion-darkCard p-4 rounded-2xl border border-notion-border dark:border-notion-darkBorder shadow-xs">
+                            <div class="flex items-center justify-between text-notion-muted dark:text-notion-darkMuted text-xs">
+                                <span class="font-medium">Today's Page Views</span>
+                                <i data-lucide="calendar" class="w-4 h-4"></i>
+                            </div>
+                            <div class="mt-2 flex items-baseline space-x-2">
+                                <span id="analyticsTodayViews" class="text-3xl font-extrabold text-slate-900 dark:text-white">0</span>
+                                <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Today</span>
+                            </div>
+                            <p class="text-[11px] text-notion-muted dark:text-notion-darkMuted mt-1">Page refreshes logged today</p>
+                        </div>
+
+                        <div class="bg-white dark:bg-notion-darkCard p-4 rounded-2xl border border-notion-border dark:border-notion-darkBorder shadow-xs">
+                            <div class="flex items-center justify-between text-notion-muted dark:text-notion-darkMuted text-xs">
+                                <span class="font-medium">Past 7 Days Views</span>
+                                <i data-lucide="trending-up" class="w-4 h-4"></i>
+                            </div>
+                            <div class="mt-2 flex items-baseline space-x-2">
+                                <span id="analyticsWeeklyViews" class="text-3xl font-extrabold text-slate-900 dark:text-white">0</span>
+                                <span class="text-xs text-sky-600 dark:text-sky-400 font-semibold">7 Days</span>
+                            </div>
+                            <p class="text-[11px] text-notion-muted dark:text-notion-darkMuted mt-1">Sum of visits over this week</p>
+                        </div>
+                    </div>
+
+                    <!-- WEEKLY VISITOR GRAPH CONTAINER -->
+                    <div class="bg-white dark:bg-notion-darkCard p-5 rounded-2xl border border-notion-border dark:border-notion-darkBorder shadow-notion space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-notion-border dark:border-notion-darkBorder pb-4">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                                    <i data-lucide="bar-chart-3" class="w-4 h-4 text-sky-500"></i>
+                                    <span>Weekly Visitor Traffic Breakdown</span>
+                                </h3>
+                                <p class="text-xs text-notion-muted dark:text-notion-darkMuted mt-0.5">Daily page views over the past 7 days (Mon – Sun)</p>
+                            </div>
+                            <div class="flex items-center space-x-2 text-xs">
+                                <button onclick="resetAnalyticsToZero()" class="px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors">
+                                    Reset Counters to 0
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- BAR CHART VISUALIZATION -->
+                        <div class="pt-4 pb-2">
+                            <div id="weeklyChartBarsContainer" class="h-48 sm:h-56 flex items-end justify-between gap-2 sm:gap-4 px-2">
+                                <!-- Dynamic Bars Rendered via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Chart Footer Info -->
+                        <div class="pt-3 border-t border-notion-border dark:border-notion-darkBorder flex items-center justify-between text-xs text-notion-muted dark:text-notion-darkMuted">
+                            <span>Average daily views: <strong id="analyticsAvgDaily" class="text-slate-900 dark:text-white">0 views/day</strong></span>
+                            <span>Tracked automatically on Vercel deployment</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: STATUS MANAGEMENT -->
+                <div id="adminTabStatuses" class="hidden space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900 dark:text-white">Custom Status Options</h2>
+                            <p class="text-xs text-notion-muted dark:text-notion-darkMuted mt-0.5">Define icons, labels, and color palettes available across the school.</p>
+                        </div>
+                        <button onclick="openAddStatusModal()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-white dark:bg-white dark:text-slate-900">
+                            + New Status
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3" id="adminStatusesGrid">
+                        <!-- Dynamic Status Cards -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL: ADD / EDIT TEACHER WITH DATE OPTION -->
+    <div id="teacherModal" class="fixed inset-0 z-50 hidden bg-black/40 dark:bg-black/70 backdrop-blur-custom flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-notion-darkCard rounded-2xl border border-notion-border dark:border-notion-darkBorder max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-notion-border dark:border-notion-darkBorder pb-3">
+                <h3 id="teacherModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Add Teacher</h3>
+                <button onclick="closeTeacherModal()" class="p-1 rounded-lg hover:bg-notion-hover dark:hover:bg-notion-darkHover text-notion-muted">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <form onsubmit="saveTeacherForm(event)" class="space-y-3.5 text-xs">
+                <input type="hidden" id="modalTeacherId">
+                <div>
+                    <label class="block font-medium text-notion-muted dark:text-notion-darkMuted mb-1">Teacher Full Name</label>
+                    <input type="text" id="modalTeacherName" required placeholder="e.g. Abebe Kebede" class="w-full px-3 py-2 rounded-xl bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-400">
+                </div>
+                <div>
+                    <label class="block font-medium text-notion-muted dark:text-notion-darkMuted mb-1">Subject</label>
+                    <input type="text" id="modalTeacherSubject" required placeholder="e.g. Mathematics" class="w-full px-3 py-2 rounded-xl bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-400">
+                </div>
+                <div>
+                    <label class="block font-medium text-notion-muted dark:text-notion-darkMuted mb-1">Room / Classroom</label>
+                    <input type="text" id="modalTeacherRoom" required placeholder="e.g. Room B204" class="w-full px-3 py-2 rounded-xl bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-400">
+                </div>
+                <div>
+                    <label class="block font-medium text-notion-muted dark:text-notion-darkMuted mb-1">Status Effective Date</label>
+                    <input type="date" id="modalTeacherDate" required class="w-full px-3 py-2 rounded-xl bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-400">
+                </div>
+                <div>
+                    <label class="block font-medium text-notion-muted dark:text-notion-darkMuted mb-1">Initial Status</label>
+                    <select id="modalTeacherStatus" class="w-full px-3 py-2 rounded-xl bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder text-slate-900 dark:text-white">
+                        <!-- Rendered via JS -->
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeTeacherModal()" class="px-3.5 py-2 rounded-xl font-medium bg-notion-hover dark:bg-notion-darkHover text-slate-700 dark:text-slate-300">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 rounded-xl font-semibold bg-slate-900 text-white dark:bg-white dark:text-slate-900">
+                        Save Faculty
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD / EDIT STATUS -->
+    <div id="statusModal" class="fixed inset-0 z-50 hidden bg-black/40 dark:bg-black/70 backdrop-blur-custom flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-notion-darkCard rounded-2xl border border-notion-border dark:border-notion-darkBorder max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-notion-border dark:border-notion-darkBorder pb-3">
+                <h3 id="statusModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Add Custom Status</h3>
+                <button onclick="closeStatusModal()" class="p-1 rounded-lg hover:bg-notion-hover dark:hover:bg-notion-darkHover text-notion-muted">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <form onsubmit="saveStatusForm(event)" class="space-y-3.5 text-xs">
+                <input type="hidden" id="modalStatusId">
+                <div>
+                    <label class="block font-medium text-notion-muted dark:text-notion-darkMuted mb-1">Status Title</label>
+                    <input type="text" id="modalStatusName" required placeholder="e.g. Running Late" class="w-full px-3 py-2 rounded-xl bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder text-slate-900 dark:text-white">
+                </div>
+                <div>
+                    <label class="block font-medium text-notion-muted dark:text-notion-darkMuted mb-1">Emoji / Icon Symbol</label>
+                    <input type="text" id="modalStatusIcon" required placeholder="e.g. 🟠" class="w-full px-3 py-2 rounded-xl bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder text-slate-900 dark:text-white">
+                </div>
+                <div>
+                    <label class="block font-medium text-notion-muted dark:text-notion-darkMuted mb-1">Accent Hex Color</label>
+                    <div class="flex space-x-2">
+                        <input type="color" id="modalStatusColor" value="#f59e0b" class="w-10 h-9 p-1 rounded-lg bg-notion-bg border border-notion-border cursor-pointer">
+                        <input type="text" id="modalStatusColorText" value="#f59e0b" oninput="document.getElementById('modalStatusColor').value = this.value" class="flex-1 px-3 py-2 rounded-xl bg-notion-bg dark:bg-notion-darkBg border border-notion-border dark:border-notion-darkBorder text-slate-900 dark:text-white">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeStatusModal()" class="px-3.5 py-2 rounded-xl font-medium bg-notion-hover dark:bg-notion-darkHover text-slate-700 dark:text-slate-300">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 rounded-xl font-semibold bg-slate-900 text-white dark:bg-white dark:text-slate-900">
+                        Save Status
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION POPUP -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <script>
+        /* ========================================================================== */
+        /* CLASSPULSE APPLICATION STATE & INITIAL DATA                                */
+        /* ========================================================================== */
+
+        const DEFAULT_STATUSES = [
+            { id: 's1', name: 'Coming', icon: '🟢', color: '#10B981', bgColor: '#ECFDF5', textColor: '#065F46', order: 1 },
+            { id: 's3', name: 'Not coming', icon: '🔴', color: '#EF4444', bgColor: '#FEE2E2', textColor: '#991B1B', order: 2 },
+            { id: 's5', name: 'Pending', icon: '⚪', color: '#6B7280', bgColor: '#F3F4F6', textColor: '#374151', order: 3 },
+            { id: 's8', name: 'Cancelled', icon: '⚫', color: '#374151', bgColor: '#E5E7EB', textColor: '#1F2937', order: 4 }
+        ];
+
+        // Format date string to YYYY-MM-DD
+        function getYYYYMMDD(dateObj) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        const todayStr = getYYYYMMDD(new Date());
+        
+        // Calculate tomorrow string
+        const tomorrowObj = new Date();
+        tomorrowObj.setDate(tomorrowObj.getDate() + 1);
+        const tomorrowStr = getYYYYMMDD(tomorrowObj);
+
+        const DEFAULT_TEACHERS = [
+            { id: 't1', name: 'Abebe Kebede', subject: 'Mathematics', room: 'B204', statusId: 's1', effectiveDate: todayStr, updatedAt: new Date().toISOString() },
+            { id: 't2', name: 'Hana Tesfaye', subject: 'Physics', room: 'C102', statusId: 's3', effectiveDate: todayStr, updatedAt: new Date(Date.now() - 300000).toISOString() },
+            { id: 't3', name: 'Daniel Alemu', subject: 'English', room: 'A201', statusId: 's1', effectiveDate: todayStr, updatedAt: new Date(Date.now() - 120000).toISOString() },
+            { id: 't4', name: 'Meron Yohannes', subject: 'Biology', room: 'C203', statusId: 's5', effectiveDate: todayStr, updatedAt: new Date(Date.now() - 600000).toISOString() },
+            { id: 't5', name: 'Samuel Tadesse', subject: 'Chemistry', room: 'B105', statusId: 's5', effectiveDate: tomorrowStr, updatedAt: new Date(Date.now() - 1500000).toISOString() },
+            { id: 't6', name: 'Saba Tilahun', subject: 'Computer Science', room: 'Lab 3', statusId: 's1', effectiveDate: todayStr, updatedAt: new Date().toISOString() },
+            { id: 't7', name: 'Yonas Getachew', subject: 'History', room: 'A104', statusId: 's8', effectiveDate: todayStr, updatedAt: new Date(Date.now() - 900000).toISOString() }
+        ];
+
+        // Zero-based initial weekly structure
+        const ZERO_WEEKLY_TRAFFIC = [
+            { day: 'Mon', views: 0, isToday: false },
+            { day: 'Tue', views: 0, isToday: false },
+            { day: 'Wed', views: 0, isToday: false },
+            { day: 'Thu', views: 0, isToday: false },
+            { day: 'Fri', views: 0, isToday: true },
+            { day: 'Sat', views: 0, isToday: false },
+            { day: 'Sun', views: 0, isToday: false }
+        ];
+
+        // Global State Variables
+        let state = {
+            currentRoute: 'student',
+            isAdminAuthenticated: false,
+            teachers: [],
+            statuses: [],
+            selectedStatusFilter: 'ALL',
+            searchQuery: '',
+            dateFilterMode: 'auto',
+            customFilterDate: todayStr,
+            pollingInterval: null,
+            lastUpdatedTimestamp: new Date(),
+            analytics: {
+                totalViews: 0,
+                activeOnline: 1,
+                weeklyViews: ZERO_WEEKLY_TRAFFIC
+            }
+        };
+
+        function initStorage() {
+            const savedStatuses = localStorage.getItem('classpulse_statuses');
+            const savedTeachers = localStorage.getItem('classpulse_teachers');
+            const savedAuth = localStorage.getItem('classpulse_admin_auth');
+            const savedAnalytics = localStorage.getItem('classpulse_analytics');
+
+            state.statuses = savedStatuses ? JSON.parse(savedStatuses) : DEFAULT_STATUSES;
+            state.teachers = savedTeachers ? JSON.parse(savedTeachers) : DEFAULT_TEACHERS;
+            state.isAdminAuthenticated = savedAuth === 'true';
+
+            if (savedAnalytics) {
+                state.analytics = JSON.parse(savedAnalytics);
+                if (state.analytics.totalViews === undefined) {
+                    state.analytics.totalViews = 0;
+                }
+            } else {
+                state.analytics = {
+                    totalViews: 0,
+                    activeOnline: 1,
+                    weeklyViews: ZERO_WEEKLY_TRAFFIC
+                };
+            }
+
+            // Increment page view counters starting from 0
+            incrementPageViewCounters();
+
+            // Ensure all teachers have an effectiveDate
+            state.teachers.forEach(t => {
+                if (!t.effectiveDate) t.effectiveDate = todayStr;
+            });
+
+            saveStateToStorage();
+        }
+
+        function incrementPageViewCounters() {
+            state.analytics.totalViews += 1;
+
+            if (!state.analytics.weeklyViews) {
+                state.analytics.weeklyViews = ZERO_WEEKLY_TRAFFIC;
+            }
+
+            const todayItem = state.analytics.weeklyViews.find(item => item.isToday);
+            if (todayItem) {
+                todayItem.views += 1;
+            } else if (state.analytics.weeklyViews.length > 0) {
+                state.analytics.weeklyViews[4].views += 1;
+            }
+
+            updateTotalViewsHeaderBadge();
+        }
+
+        function saveStateToStorage() {
+            localStorage.setItem('classpulse_statuses', JSON.stringify(state.statuses));
+            localStorage.setItem('classpulse_teachers', JSON.stringify(state.teachers));
+            localStorage.setItem('classpulse_admin_auth', state.isAdminAuthenticated ? 'true' : 'false');
+            localStorage.setItem('classpulse_analytics', JSON.stringify(state.analytics));
+        }
+
+        function resetAnalyticsToZero() {
+            state.analytics = {
+                totalViews: 0,
+                activeOnline: 1,
+                weeklyViews: JSON.parse(JSON.stringify(ZERO_WEEKLY_TRAFFIC))
+            };
+            saveStateToStorage();
+            updateTotalViewsHeaderBadge();
+            renderAnalyticsTab();
+            showToast('All view counters reset to 0', 'info');
+        }
+
+        function updateTotalViewsHeaderBadge() {
+            const el = document.getElementById('headerTotalViewsCount');
+            if (el) el.textContent = state.analytics.totalViews.toLocaleString();
+        }
+
+        /* ========================================================================== */
+        /* STARTUP LOADING ANIMATION (1% -> 100%) WITH SAFE NULL GUARDS              */
+        /* ========================================================================== */
+
+        function runStartupLoadingAnimation() {
+            const loaderPercentText = document.getElementById('loaderPercentText');
+            const loaderProgressBar = document.getElementById('loaderProgressBar');
+            const appLoader = document.getElementById('appLoader');
+
+            let currentProgress = 1;
+            const interval = setInterval(() => {
+                currentProgress += Math.floor(Math.random() * 8) + 4;
+                if (currentProgress >= 100) {
+                    currentProgress = 100;
+                    clearInterval(interval);
+                    
+                    if (loaderPercentText) loaderPercentText.textContent = `100%`;
+                    if (loaderProgressBar) loaderProgressBar.style.width = `100%`;
+
+                    setTimeout(() => {
+                        if (appLoader) {
+                            appLoader.classList.add('opacity-0', 'pointer-events-none');
+                            setTimeout(() => {
+                                if (appLoader.parentNode) {
+                                    appLoader.parentNode.removeChild(appLoader);
+                                }
+                            }, 500);
+                        }
+                    }, 200);
+                } else {
+                    if (loaderPercentText) loaderPercentText.textContent = `${currentProgress}%`;
+                    if (loaderProgressBar) loaderProgressBar.style.width = `${currentProgress}%`;
+                }
+            }, 30);
+        }
+
+        // Initialize App on DOM Ready
+        window.addEventListener('DOMContentLoaded', () => {
+            initStorage();
+            runStartupLoadingAnimation();
+            renderIcons();
+            renderAllViews();
+
+            // Set up polling (30 seconds check)
+            state.pollingInterval = setInterval(() => {
+                refreshData(false);
+            }, 30000);
+
+            // Fluctuate active visitors count gently
+            setInterval(simulateLiveVisitorFluctuation, 7000);
+        });
+
+        // Safe Lucide icon rendering wrapper
+        function renderIcons() {
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+        }
+
+        /* ========================================================================== */
+        /* LIVE VISITOR SIMULATOR & ANALYTICS RENDER                                  */
+        /* ========================================================================== */
+
+        function simulateLiveVisitorFluctuation() {
+            const delta = Math.floor(Math.random() * 3) - 1;
+            state.analytics.activeOnline = Math.max(1, Math.min(12, state.analytics.activeOnline + delta));
+
+            const badge = document.getElementById('headerLiveVisitorCount');
+            if (badge) badge.textContent = state.analytics.activeOnline;
+
+            const adminActive = document.getElementById('analyticsActiveOnline');
+            if (adminActive) adminActive.textContent = state.analytics.activeOnline;
+        }
+
+        function renderAnalyticsTab() {
+            const totalViewsEl = document.getElementById('analyticsTotalViews');
+            const todayViewsEl = document.getElementById('analyticsTodayViews');
+            const weeklyViewsEl = document.getElementById('analyticsWeeklyViews');
+            const activeOnlineEl = document.getElementById('analyticsActiveOnline');
+            const avgDailyEl = document.getElementById('analyticsAvgDaily');
+            const chartContainer = document.getElementById('weeklyChartBarsContainer');
+
+            const weeklyData = state.analytics.weeklyViews || ZERO_WEEKLY_TRAFFIC;
+            const todayItem = weeklyData.find(d => d.isToday) || { views: 0 };
+            
+            const totalWeekly = weeklyData.reduce((acc, curr) => acc + curr.views, 0);
+            const maxViews = Math.max(...weeklyData.map(d => d.views), 1);
+            const avgDaily = Math.round(totalWeekly / weeklyData.length);
+
+            if (totalViewsEl) totalViewsEl.textContent = state.analytics.totalViews.toLocaleString();
+            if (todayViewsEl) todayViewsEl.textContent = todayItem.views.toLocaleString();
+            if (weeklyViewsEl) weeklyViewsEl.textContent = totalWeekly.toLocaleString();
+            if (activeOnlineEl) activeOnlineEl.textContent = state.analytics.activeOnline;
+            if (avgDailyEl) avgDailyEl.textContent = `${avgDaily} views/day`;
+
+            // Render Weekly Bar Chart
+            if (chartContainer) {
+                chartContainer.innerHTML = weeklyData.map(item => {
+                    const heightPercent = item.views === 0 ? 6 : Math.max(15, Math.round((item.views / maxViews) * 100));
+                    const isToday = item.isToday;
+
+                    return `
+                        <div class="flex-1 flex flex-col items-center justify-end h-full group relative">
+                            <!-- Tooltip -->
+                            <div class="absolute -top-10 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none bg-slate-900 text-white text-[10px] font-semibold px-2 py-1 rounded shadow-md z-20 whitespace-nowrap">
+                                ${item.day}: ${item.views} views
+                            </div>
+
+                            <!-- Value Label -->
+                            <span class="text-[10px] font-bold mb-1.5 text-notion-muted dark:text-notion-darkMuted group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                                ${item.views}
+                            </span>
+
+                            <!-- Bar Column -->
+                            <div class="w-full max-w-[36px] rounded-t-lg transition-all duration-300 ${
+                                isToday 
+                                    ? 'bg-sky-500 hover:bg-sky-400 dark:bg-sky-400 dark:hover:bg-sky-300 shadow-sm' 
+                                    : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700'
+                            }" style="height: ${heightPercent}%;"></div>
+
+                            <!-- Day Label -->
+                            <span class="text-xs font-semibold mt-2 ${
+                                isToday ? 'text-sky-600 dark:text-sky-400 font-bold' : 'text-notion-muted dark:text-notion-darkMuted'
+                            }">
+                                ${item.day}
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        /* ========================================================================== */
+        /* AUTOMATIC 5:00 PM DATE CALCULATOR                                          */
+        /* ========================================================================== */
+
+        function getActiveTargetDate() {
+            const now = new Date();
+            const currentHour = now.getHours();
+
+            if (state.dateFilterMode === 'today') {
+                return { dateStr: todayStr, isAfter5pmRollover: false, label: 'Today' };
+            }
+            if (state.dateFilterMode === 'tomorrow') {
+                return { dateStr: tomorrowStr, isAfter5pmRollover: false, label: 'Tomorrow' };
+            }
+            if (state.dateFilterMode === 'custom') {
+                return { dateStr: state.customFilterDate, isAfter5pmRollover: false, label: 'Selected Date' };
+            }
+
+            // 'auto' mode logic: after 5:00 PM (17:00), shift date to Tomorrow
+            if (currentHour >= 17) {
+                return {
+                    dateStr: tomorrowStr,
+                    isAfter5pmRollover: true,
+                    label: 'Tomorrow'
+                };
+            } else {
+                return {
+                    dateStr: todayStr,
+                    isAfter5pmRollover: false,
+                    label: 'Today'
+                };
+            }
+        }
+
+        function formatDisplayDate(dateYMD) {
+            const parts = dateYMD.split('-');
+            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+            return dateObj.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+        /* ========================================================================== */
+        /* ROUTING & VIEW SWITCHING                                                   */
+        /* ========================================================================== */
+
+        function switchRoute(route) {
+            state.currentRoute = route;
+            const studentView = document.getElementById('studentView');
+            const adminView = document.getElementById('adminView');
+            const navStudentBtn = document.getElementById('navStudentBtn');
+            const navAdminBtn = document.getElementById('navAdminBtn');
+
+            if (route === 'student') {
+                if (studentView) studentView.classList.remove('hidden');
+                if (adminView) adminView.classList.add('hidden');
+
+                if (navStudentBtn) navStudentBtn.className = "px-3 py-1 text-xs font-medium rounded-md transition-notion text-slate-900 dark:text-white bg-white dark:bg-notion-darkCard shadow-xs";
+                if (navAdminBtn) navAdminBtn.className = "px-3 py-1 text-xs font-medium rounded-md transition-notion text-notion-muted dark:text-notion-darkMuted hover:text-slate-900 dark:hover:text-white";
+                
+                renderStudentView();
+            } else {
+                if (studentView) studentView.classList.add('hidden');
+                if (adminView) adminView.classList.remove('hidden');
+
+                if (navAdminBtn) navAdminBtn.className = "px-3 py-1 text-xs font-medium rounded-md transition-notion text-slate-900 dark:text-white bg-white dark:bg-notion-darkCard shadow-xs";
+                if (navStudentBtn) navStudentBtn.className = "px-3 py-1 text-xs font-medium rounded-md transition-notion text-notion-muted dark:text-notion-darkMuted hover:text-slate-900 dark:hover:text-white";
+
+                renderAdminView();
+            }
+            renderIcons();
+        }
+
+        /* ========================================================================== */
+        /* PUBLIC STUDENT DASHBOARD RENDERING                                         */
+        /* ========================================================================== */
+
+        function renderStudentView() {
+            const activeDateInfo = getActiveTargetDate();
+            
+            // Update Header Date Text
+            const dateBadge = document.getElementById('headingDateBadge');
+            if (dateBadge) {
+                dateBadge.textContent = formatDisplayDate(activeDateInfo.dateStr);
+            }
+
+            // Update rollover notice if past 5 PM
+            const notice = document.getElementById('scheduleRolloverNotice');
+            const autoLabel = document.getElementById('autoFilterLabel');
+            if (autoLabel) {
+                autoLabel.textContent = new Date().getHours() >= 17 ? 'Tomorrow' : 'Today';
+            }
+
+            if (notice) {
+                if (activeDateInfo.isAfter5pmRollover && state.dateFilterMode === 'auto') {
+                    notice.innerHTML = `🌙 <span class="font-medium text-amber-600 dark:text-amber-400">It's past 5:00 PM!</span> Showing tomorrow's class status.`;
+                } else {
+                    notice.textContent = `Real-time status updates from teachers and faculty departments.`;
+                }
+            }
+
+            renderDateFilterUI();
+            renderStatusFilterPills();
+            renderTeacherCards();
+            updateLastUpdatedLabel();
+        }
+
+        function setDateFilterMode(mode) {
+            state.dateFilterMode = mode;
+            renderStudentView();
+        }
+
+        function handleCustomDateChange(val) {
+            if (val) {
+                state.customFilterDate = val;
+                state.dateFilterMode = 'custom';
+                renderStudentView();
+            }
+        }
+
+        function renderDateFilterUI() {
+            const autoBtn = document.getElementById('dateFilterAutoBtn');
+            const todayBtn = document.getElementById('dateFilterTodayBtn');
+            const tomorrowBtn = document.getElementById('dateFilterTomorrowBtn');
+            const customInput = document.getElementById('studentCustomDatePicker');
+
+            if (customInput) customInput.value = state.customFilterDate || todayStr;
+
+            const activeClass = "px-3 py-1 rounded-lg text-xs font-medium transition-notion bg-slate-900 text-white dark:bg-white dark:text-slate-900";
+            const inactiveClass = "px-3 py-1 rounded-lg text-xs font-medium transition-notion bg-notion-hover dark:bg-notion-darkHover text-notion-muted hover:text-slate-900 dark:hover:text-white";
+
+            if (autoBtn) autoBtn.className = state.dateFilterMode === 'auto' ? activeClass : inactiveClass;
+            if (todayBtn) todayBtn.className = state.dateFilterMode === 'today' ? activeClass : inactiveClass;
+            if (tomorrowBtn) tomorrowBtn.className = state.dateFilterMode === 'tomorrow' ? activeClass : inactiveClass;
+        }
+
+        function renderStatusFilterPills() {
+            const container = document.getElementById('statusFilterPills');
+            if (!container) return;
+
+            const activeTargetDate = getActiveTargetDate().dateStr;
+            const relevantTeachers = state.teachers.filter(t => t.effectiveDate === activeTargetDate);
+            
+            // Only keep Pending, Coming, Not coming, and Cancelled
+            const allowedNames = ['coming', 'not coming', 'pending', 'cancelled'];
+            const filteredStatuses = state.statuses.filter(s => allowedNames.includes(s.name.toLowerCase()));
+
+            // All pill
+            let html = `
+                <button 
+                    onclick="setFilter('ALL')" 
+                    class="px-3 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center space-x-1 whitespace-nowrap ${
+                        state.selectedStatusFilter === 'ALL'
+                            ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                            : 'bg-white dark:bg-notion-darkCard text-notion-muted hover:text-slate-900 dark:hover:text-white border border-notion-border dark:border-notion-darkBorder'
+                    }">
+                    <span>All</span>
+                    <span class="ml-1 text-[10px] opacity-75">(${relevantTeachers.length})</span>
+                </button>
+            `;
+
+            // Individual Allowed Status Pills
+            filteredStatuses.forEach(status => {
+                const count = relevantTeachers.filter(t => t.statusId === status.id).length;
+                const isSelected = state.selectedStatusFilter === status.id;
+
+                html += `
+                    <button 
+                        onclick="setFilter('${status.id}')" 
+                        class="px-3 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center space-x-1.5 whitespace-nowrap ${
+                            isSelected
+                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                                : 'bg-white dark:bg-notion-darkCard text-slate-700 dark:text-slate-300 hover:bg-notion-hover dark:hover:bg-notion-darkHover border border-notion-border dark:border-notion-darkBorder'
+                        }">
+                        <span>${status.icon}</span>
+                        <span>${status.name}</span>
+                        <span class="text-[10px] opacity-70">(${count})</span>
+                    </button>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function renderTeacherCards() {
+            const grid = document.getElementById('teacherCardsGrid');
+            const emptyState = document.getElementById('emptySearchState');
+            if (!grid) return;
+
+            const activeTargetDate = getActiveTargetDate().dateStr;
+            const query = state.searchQuery.toLowerCase().trim();
+            const filtered = state.teachers.filter(t => {
+                const matchesDate = (t.effectiveDate === activeTargetDate);
+                const matchesSearch = 
+                    t.name.toLowerCase().includes(query) ||
+                    t.subject.toLowerCase().includes(query) ||
+                    t.room.toLowerCase().includes(query);
+
+                const matchesStatus = 
+                    state.selectedStatusFilter === 'ALL' || 
+                    t.statusId === state.selectedStatusFilter;
+
+                return matchesDate && matchesSearch && matchesStatus;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                if (emptyState) emptyState.classList.remove('hidden');
+                return;
+            }
+
+            if (emptyState) emptyState.classList.add('hidden');
+
+            grid.innerHTML = filtered.map((teacher, index) => {
+                const status = state.statuses.find(s => s.id === teacher.statusId) || {
+                    name: 'Unknown',
+                    icon: '⚪',
+                    color: '#6B7280',
+                    bgColor: '#F3F4F6',
+                    textColor: '#374151'
+                };
+
+                const timeAgo = formatTimeAgo(teacher.updatedAt);
+
+                return `
+                    <div class="group bg-white dark:bg-notion-darkCard rounded-2xl border border-notion-border dark:border-notion-darkBorder p-5 hover:border-slate-300 dark:hover:border-slate-600 transition-notion hover:shadow-notion-hover flex flex-col justify-between animate-appear" style="animation-delay: ${index * 0.05}s">
+                        <div>
+                            <div class="flex items-center justify-between text-xs mb-3">
+                                <span class="font-medium text-notion-accent uppercase tracking-wider text-[11px] bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 rounded-md border border-sky-200/50 dark:border-sky-800/40">
+                                    ${escapeHtml(teacher.subject)}
+                                </span>
+                                <span class="text-notion-muted dark:text-notion-darkMuted font-medium flex items-center space-x-1">
+                                    <i data-lucide="map-pin" class="w-3 h-3"></i>
+                                    <span>${escapeHtml(teacher.room)}</span>
+                                </span>
+                            </div>
+
+                            <h3 class="text-base font-bold text-slate-900 dark:text-white tracking-tight group-hover:text-black dark:group-hover:text-slate-100 transition-colors">
+                                ${escapeHtml(teacher.name)}
+                            </h3>
+                        </div>
+
+                        <div class="mt-5 pt-3 border-t border-notion-border/60 dark:border-notion-darkBorder/60 flex items-center justify-between">
+                            <div class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-2xs" 
+                                 style="background-color: ${status.bgColor}; color: ${status.textColor};">
+                                <span class="text-sm">${status.icon}</span>
+                                <span>${escapeHtml(status.name)}</span>
+                            </div>
+
+                            <div class="text-right">
+                                <span class="block text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                                    ${formatDisplayDate(teacher.effectiveDate)}
+                                </span>
+                                <span class="text-[10px] text-notion-muted dark:text-notion-darkMuted" title="${new Date(teacher.updatedAt).toLocaleString()}">
+                                    ${timeAgo}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            renderIcons();
+        }
+
+        function handleSearchFilter() {
+            const input = document.getElementById('studentSearchInput');
+            if (input) state.searchQuery = input.value;
+            renderTeacherCards();
+        }
+
+        function setFilter(statusId) {
+            state.selectedStatusFilter = statusId;
+            renderStatusFilterPills();
+            renderTeacherCards();
+        }
+
+        function resetSearchAndFilters() {
+            state.searchQuery = '';
+            state.selectedStatusFilter = 'ALL';
+            state.dateFilterMode = 'auto';
+            const input = document.getElementById('studentSearchInput');
+            if (input) input.value = '';
+            renderStudentView();
+        }
+
+        /* ========================================================================== */
+        /* ADMIN PORTAL LOGIC & TAB MANAGEMENT                                       */
+        /* ========================================================================== */
+
+        function renderAdminView() {
+            const loginForm = document.getElementById('adminLoginForm');
+            const dashboardContent = document.getElementById('adminDashboardContent');
+
+            if (!state.isAdminAuthenticated) {
+                if (loginForm) loginForm.classList.remove('hidden');
+                if (dashboardContent) dashboardContent.classList.add('hidden');
+            } else {
+                if (loginForm) loginForm.classList.add('hidden');
+                if (dashboardContent) dashboardContent.classList.remove('hidden');
+                
+                renderAdminOverviewStats();
+                renderAdminTeachersTable();
+                renderAdminStatusesGrid();
+                renderAnalyticsTab();
+            }
+        }
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            const userEl = document.getElementById('adminUser');
+            const passEl = document.getElementById('adminPass');
+            const user = userEl ? userEl.value : '';
+            const pass = passEl ? passEl.value : '';
+            const errorMsg = document.getElementById('loginErrorMsg');
+
+            if (user === 'admin' && pass === 'classpulse2026!') {
+                state.isAdminAuthenticated = true;
+                saveStateToStorage();
+                if (errorMsg) errorMsg.classList.add('hidden');
+                showToast('Welcome back, Administrator!', 'success');
+                renderAdminView();
+            } else {
+                if (errorMsg) errorMsg.classList.remove('hidden');
+            }
+        }
+
+        function handleAdminLogout() {
+            state.isAdminAuthenticated = false;
+            saveStateToStorage();
+            showToast('Logged out of Admin Portal', 'info');
+            renderAdminView();
+        }
+
+        function setAdminTab(tabName) {
+            const tabs = ['Teachers', 'Analytics', 'Statuses'];
+            tabs.forEach(tab => {
+                const content = document.getElementById(`adminTab${tab}`);
+                const btn = document.getElementById(`tabBtn${tab}`);
+                if (content && btn) {
+                    if (tab.toLowerCase() === tabName.toLowerCase()) {
+                        content.classList.remove('hidden');
+                        btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-notion bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white";
+                    } else {
+                        content.classList.add('hidden');
+                        btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-notion text-notion-muted hover:text-slate-900 dark:hover:text-white";
+                    }
+                }
+            });
+
+            if (tabName === 'analytics') {
+                renderAnalyticsTab();
+            }
+        }
+
+        function renderAdminOverviewStats() {
+            const grid = document.getElementById('adminStatsGrid');
+            if (!grid) return;
+            
+            let html = `
+                <div class="bg-white dark:bg-notion-darkCard p-3 rounded-2xl border border-notion-border dark:border-notion-darkBorder">
+                    <span class="text-[11px] font-medium text-notion-muted">Total Faculty</span>
+                    <p class="text-xl font-bold text-slate-900 dark:text-white mt-0.5">${state.teachers.length}</p>
+                </div>
+            `;
+
+            state.statuses.slice(0, 5).forEach(status => {
+                const count = state.teachers.filter(t => t.statusId === status.id).length;
+                html += `
+                    <div class="bg-white dark:bg-notion-darkCard p-3 rounded-2xl border border-notion-border dark:border-notion-darkBorder">
+                        <span class="text-[11px] font-medium flex items-center space-x-1 text-slate-700 dark:text-slate-300">
+                            <span>${status.icon}</span>
+                            <span class="truncate">${status.name}</span>
+                        </span>
+                        <p class="text-xl font-bold text-slate-900 dark:text-white mt-0.5">${count}</p>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+        }
+
+        function renderAdminTeachersTable() {
+            const tbody = document.getElementById('adminTeacherTableBody');
+            const countBadge = document.getElementById('teacherCountBadge');
+            if (countBadge) countBadge.textContent = `${state.teachers.length} Teachers`;
+            if (!tbody) return;
+
+            tbody.innerHTML = state.teachers.map(teacher => {
+                return `
+                    <tr class="hover:bg-notion-bg dark:hover:bg-notion-darkBg/50 transition-colors">
+                        <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">
+                            ${escapeHtml(teacher.name)}
+                        </td>
+                        <td class="py-3 px-4 text-notion-muted dark:text-notion-darkMuted">
+                            ${escapeHtml(teacher.subject)}
+                        </td>
+                        <td class="py-3 px-4 text-notion-muted dark:text-notion-darkMuted">
+                            ${escapeHtml(teacher.room)}
+                        </td>
+                        <td class="py-3 px-4">
+                            <input 
+                                type="date" 
+                                value="${teacher.effectiveDate || todayStr}"
+                                onchange="fastUpdateTeacherDate('${teacher.id}', this.value)"
+                                class="px-2.5 py-1 text-xs font-medium rounded-xl border border-notion-border dark:border-notion-darkBorder bg-white dark:bg-notion-darkCard text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-400">
+                        </td>
+                        <td class="py-3 px-4">
+                            <select 
+                                onchange="fastUpdateTeacherStatus('${teacher.id}', this.value)"
+                                class="px-2.5 py-1 text-xs font-semibold rounded-xl border border-notion-border dark:border-notion-darkBorder bg-white dark:bg-notion-darkCard text-slate-900 dark:text-white cursor-pointer focus:ring-2 focus:ring-slate-400">
+                                ${state.statuses.map(s => `
+                                    <option value="${s.id}" ${s.id === teacher.statusId ? 'selected' : ''}>
+                                        ${s.icon} ${s.name}
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </td>
+                        <td class="py-3 px-4 text-right space-x-2">
+                            <button onclick="openEditTeacherModal('${teacher.id}')" class="p-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-notion-darkHover text-notion-muted hover:text-slate-900 dark:hover:text-white">
+                                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="deleteTeacher('${teacher.id}')" class="p-1.5 rounded-lg hover:bg-red-50 text-notion-muted hover:text-red-600 dark:hover:bg-red-950/40">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            renderIcons();
+        }
+
+        function fastUpdateTeacherStatus(teacherId, newStatusId) {
+            const teacher = state.teachers.find(t => t.id === teacherId);
+            if (teacher) {
+                teacher.statusId = newStatusId;
+                teacher.updatedAt = new Date().toISOString();
+                saveStateToStorage();
+                
+                renderAdminOverviewStats();
+                updateLastUpdatedLabel();
+                showToast(`Updated ${teacher.name}'s status`, 'success');
+            }
+        }
+
+        function fastUpdateTeacherDate(teacherId, newDateStr) {
+            const teacher = state.teachers.find(t => t.id === teacherId);
+            if (teacher && newDateStr) {
+                teacher.effectiveDate = newDateStr;
+                teacher.updatedAt = new Date().toISOString();
+                saveStateToStorage();
+
+                showToast(`Updated date for ${teacher.name}`, 'success');
+            }
+        }
+
+        function renderAdminStatusesGrid() {
+            const grid = document.getElementById('adminStatusesGrid');
+            if (!grid) return;
+
+            grid.innerHTML = state.statuses.map(status => {
+                const usageCount = state.teachers.filter(t => t.statusId === status.id).length;
+
+                return `
+                    <div class="bg-white dark:bg-notion-darkCard rounded-2xl border border-notion-border dark:border-notion-darkBorder p-4 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-2xs" style="background-color: ${status.bgColor}; color: ${status.textColor};">
+                                ${status.icon}
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-900 dark:text-white">${escapeHtml(status.name)}</h4>
+                                <span class="text-[11px] text-notion-muted">${usageCount} teachers assigned</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-1">
+                            <button onclick="openEditStatusModal('${status.id}')" class="p-1.5 rounded-lg hover:bg-notion-hover text-notion-muted hover:text-slate-900 dark:hover:text-white">
+                                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="deleteStatus('${status.id}')" class="p-1.5 rounded-lg hover:bg-red-50 text-notion-muted hover:text-red-600">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            renderIcons();
+        }
+
+        /* ========================================================================== */
+        /* TEACHER & STATUS MODAL HANDLERS                                           */
+        /* ========================================================================== */
+
+        function openAddTeacherModal() {
+            const title = document.getElementById('teacherModalTitle');
+            if (title) title.textContent = "Add Teacher";
+            
+            document.getElementById('modalTeacherId').value = "";
+            document.getElementById('modalTeacherName').value = "";
+            document.getElementById('modalTeacherSubject').value = "";
+            document.getElementById('modalTeacherRoom').value = "";
+            document.getElementById('modalTeacherDate').value = getActiveTargetDate().dateStr;
+
+            populateStatusOptionsDropdown();
+            const modal = document.getElementById('teacherModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function openEditTeacherModal(teacherId) {
+            const teacher = state.teachers.find(t => t.id === teacherId);
+            if (!teacher) return;
+
+            const title = document.getElementById('teacherModalTitle');
+            if (title) title.textContent = "Edit Teacher";
+
+            document.getElementById('modalTeacherId').value = teacher.id;
+            document.getElementById('modalTeacherName').value = teacher.name;
+            document.getElementById('modalTeacherSubject').value = teacher.subject;
+            document.getElementById('modalTeacherRoom').value = teacher.room;
+            document.getElementById('modalTeacherDate').value = teacher.effectiveDate || todayStr;
+
+            populateStatusOptionsDropdown(teacher.statusId);
+            const modal = document.getElementById('teacherModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function populateStatusOptionsDropdown(selectedId = null) {
+            const select = document.getElementById('modalTeacherStatus');
+            if (!select) return;
+            select.innerHTML = state.statuses.map(s => `
+                <option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>
+                    ${s.icon} ${s.name}
+                </option>
+            `).join('');
+        }
+
+        function closeTeacherModal() {
+            const modal = document.getElementById('teacherModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function saveTeacherForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('modalTeacherId').value;
+            const name = document.getElementById('modalTeacherName').value.trim();
+            const subject = document.getElementById('modalTeacherSubject').value.trim();
+            const room = document.getElementById('modalTeacherRoom').value.trim();
+            const effectiveDate = document.getElementById('modalTeacherDate').value || todayStr;
+            const statusId = document.getElementById('modalTeacherStatus').value;
+
+            if (id) {
+                const teacher = state.teachers.find(t => t.id === id);
+                if (teacher) {
+                    teacher.name = name;
+                    teacher.subject = subject;
+                    teacher.room = room;
+                    teacher.effectiveDate = effectiveDate;
+                    teacher.statusId = statusId;
+                    teacher.updatedAt = new Date().toISOString();
+                }
+                showToast('Teacher updated', 'success');
+            } else {
+                const newTeacher = {
+                    id: 't_' + Date.now(),
+                    name,
+                    subject,
+                    room,
+                    effectiveDate,
+                    statusId,
+                    updatedAt: new Date().toISOString()
+                };
+                state.teachers.unshift(newTeacher);
+                showToast('New teacher added', 'success');
+            }
+
+            saveStateToStorage();
+            closeTeacherModal();
+            renderAllViews();
+        }
+
+        function deleteTeacher(id) {
+            const teacher = state.teachers.find(t => t.id === id);
+            if (!teacher) return;
+
+            state.teachers = state.teachers.filter(t => t.id !== id);
+            saveStateToStorage();
+            showToast(`Deleted ${teacher.name}`, 'info');
+            renderAllViews();
+        }
+
+        function openAddStatusModal() {
+            const title = document.getElementById('statusModalTitle');
+            if (title) title.textContent = "Add Custom Status";
+            
+            document.getElementById('modalStatusId').value = "";
+            document.getElementById('modalStatusName').value = "";
+            document.getElementById('modalStatusIcon').value = "🟣";
+            document.getElementById('modalStatusColor').value = "#8b5cf6";
+            document.getElementById('modalStatusColorText').value = "#8b5cf6";
+
+            const modal = document.getElementById('statusModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function openEditStatusModal(statusId) {
+            const status = state.statuses.find(s => s.id === statusId);
+            if (!status) return;
+
+            const title = document.getElementById('statusModalTitle');
+            if (title) title.textContent = "Edit Status";
+
+            document.getElementById('modalStatusId').value = status.id;
+            document.getElementById('modalStatusName').value = status.name;
+            document.getElementById('modalStatusIcon').value = status.icon;
+            document.getElementById('modalStatusColor').value = status.color;
+            document.getElementById('modalStatusColorText').value = status.color;
+
+            const modal = document.getElementById('statusModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeStatusModal() {
+            const modal = document.getElementById('statusModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function saveStatusForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('modalStatusId').value;
+            const name = document.getElementById('modalStatusName').value.trim();
+            const icon = document.getElementById('modalStatusIcon').value.trim();
+            const color = document.getElementById('modalStatusColor').value;
+
+            const bgColor = hexToLightBg(color);
+            const textColor = hexToDarkText(color);
+
+            if (id) {
+                const status = state.statuses.find(s => s.id === id);
+                if (status) {
+                    status.name = name;
+                    status.icon = icon;
+                    status.color = color;
+                    status.bgColor = bgColor;
+                    status.textColor = textColor;
+                }
+                showToast('Status updated', 'success');
+            } else {
+                const newStatus = {
+                    id: 's_' + Date.now(),
+                    name,
+                    icon,
+                    color,
+                    bgColor,
+                    textColor,
+                    order: state.statuses.length + 1
+                };
+                state.statuses.push(newStatus);
+                showToast('New status added', 'success');
+            }
+
+            saveStateToStorage();
+            closeStatusModal();
+            renderAllViews();
+        }
+
+        function deleteStatus(id) {
+            if (state.statuses.length <= 1) {
+                showToast('You must keep at least one status', 'error');
+                return;
+            }
+
+            state.statuses = state.statuses.filter(s => s.id !== id);
+            state.teachers.forEach(t => {
+                if (t.statusId === id) {
+                    t.statusId = state.statuses[0].id;
+                }
+            });
+
+            saveStateToStorage();
+            showToast('Status removed', 'info');
+            renderAllViews();
+        }
+
+        /* ========================================================================== */
+        /* REFRESH LOGIC & UTILITIES                                                  */
+        /* ========================================================================== */
+
+        function refreshData(userTriggered = false) {
+            const refreshIcon = document.getElementById('refreshIcon');
+            if (refreshIcon) refreshIcon.classList.add('animate-spin');
+
+            setTimeout(() => {
+                if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+                state.lastUpdatedTimestamp = new Date();
+                updateLastUpdatedLabel();
+
+                if (userTriggered) {
+                    incrementPageViewCounters();
+                    saveStateToStorage();
+                    renderAllViews();
+                    showToast('Dashboard refreshed with latest status', 'info');
+                }
+            }, 400);
+        }
+
+        function updateLastUpdatedLabel() {
+            const el = document.getElementById('lastUpdatedTime');
+            if (el) {
+                el.textContent = `Updated ${formatTimeAgo(state.lastUpdatedTimestamp.toISOString())}`;
+            }
+        }
+
+        function renderAllViews() {
+            renderStudentView();
+            if (state.isAdminAuthenticated) renderAdminView();
+        }
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        function formatTimeAgo(isoString) {
+            if (!isoString) return 'Just now';
+            const diffMs = new Date() - new Date(isoString);
+            const mins = Math.floor(diffMs / 60000);
+
+            if (mins < 1) return 'Just now';
+            if (mins === 1) return '1 min ago';
+            if (mins < 60) return `${mins} mins ago`;
+            const hours = Math.floor(mins / 60);
+            if (hours === 1) return '1 hour ago';
+            return `${hours} hours ago`;
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, match => {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[match];
+            });
+        }
+
+        function hexToLightBg(hex) {
+            return hex + '1A';
+        }
+
+        function hexToDarkText(hex) {
+            return hex;
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+
+            const bgClass = type === 'success' 
+                ? 'bg-emerald-900 text-emerald-100 border-emerald-700' 
+                : type === 'error' 
+                ? 'bg-red-900 text-red-100 border-red-700' 
+                : 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-700';
+
+            toast.className = `px-4 py-2.5 rounded-xl text-xs font-medium border shadow-2xl transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto flex items-center space-x-2 ${bgClass}`;
+            toast.innerHTML = `<span>⚡</span><span>${escapeHtml(message)}</span>`;
+
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
