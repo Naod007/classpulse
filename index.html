@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClassPulse — Real-Time Teacher Attendance & Schedule</title>
+    <meta name="description" content="Check live teacher attendance, daily class schedules, and real-time updates for classes. Designed for students and class representatives." />
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="ClassPulse — Real-Time Teacher Attendance Dashboard" />
+    <meta property="og:description" content="Check live teacher attendance, daily class schedules, and real-time updates instantly." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://classpulse.app" />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop" />
+    
+    <!-- Twitter Card Metadata -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ClassPulse — Real-Time Teacher Attendance" />
+    <meta name="twitter:description" content="Live teacher attendance and class schedules." />
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop" />
+
+    <!-- Theme color -->
+    <meta name="theme-color" content="#0f172a" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M22 10v6M2 10l10-5 10 5-10 5z'/><path d='M6 12v5c3 3 9 3 12 0v-5'/></svg>" />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .animate-pulse-subtle { animation: pulse-subtle 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(107, 114, 128, 0.8); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 h-full flex flex-col selection:bg-sky-500 selection:text-white">
+
+    <div id="app" class="min-h-full flex flex-col flex-grow">
+        
+        <!-- Header / Navigation -->
+        <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                
+                <!-- Logo & Title -->
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="appState.currentView = 'dashboard'; renderApp();">
+                    <div class="w-10 h-10 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center font-bold text-lg shadow-sm">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-lg tracking-tight">ClassPulse</span>
+                            <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">Live</span>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Real-Time Teacher Attendance</p>
+                    </div>
+                </div>
+
+                <!-- Center: Connection status & date -->
+                <div class="hidden md:flex items-center space-x-4 text-sm text-slate-600 dark:text-slate-300">
+                    <div class="flex items-center space-x-1.5 bg-slate-100 dark:bg-slate-800/60 px-3 py-1 rounded-full">
+                        <span id="connection-indicator" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="connection-text" class="text-xs font-medium">Live Synced</span>
+                    </div>
+                    <span class="text-slate-300 dark:text-slate-700">|</span>
+                    <div id="header-date" class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <!-- Date injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Right: Actions (Theme Toggle, Install PWA, Admin Portal) -->
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <!-- Install PWA Button (Hidden by default until prompt) -->
+                    <button id="install-btn" onclick="installPWA()" title="Install App" class="hidden items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 transition">
+                        <i class="fa-solid fa-download"></i>
+                        <span class="hidden sm:inline">Install App</span>
+                    </button>
+
+                    <!-- Theme Toggle -->
+                    <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Toggle Theme">
+                        <i id="theme-icon" class="fa-solid fa-moon"></i>
+                    </button>
+
+                    <!-- Portal switch -->
+                    <div id="auth-nav-container">
+                        <!-- Injected dynamically based on auth state -->
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow flex flex-col">
+            <div id="view-container" class="flex-grow flex flex-col">
+                <!-- Views get rendered here -->
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 text-xs text-slate-500 dark:text-slate-400">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center space-x-2">
+                    <span class="font-semibold text-slate-700 dark:text-slate-300">ClassPulse v2.5</span>
+                    <span>&bull;</span>
+                    <span>Made by <a href="https://naod-araya.vercel.app/?v=11" target="_blank" class="text-sky-600 dark:text-sky-400 font-medium hover:underline">Naod Araya</a></span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="footer-sync-time">Last synced: Just now</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modals & Notifications Container -->
+    <div id="modal-container"></div>
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <script>
+        // Global Application State
+        const appState = {
+            currentView: 'dashboard', // 'dashboard', 'login', 'admin', 'history', 'setup-guide'
+            user: null, // Rep user if logged in
+            userRole: 'student', // 'student' or 'representative'
+            classes: [],
+            teachers: [],
+            subjects: [],
+            sessions: [], // Daily sessions with status
+            auditLogs: [],
+            loading: true,
+            error: null,
+            filters: {
+                status: 'all',
+                search: '',
+                teacher: 'all',
+                subject: 'all',
+                date: new Date().toISOString().split('T')[0]
+            },
+            connectionStatus: 'connecting', // 'connected', 'disconnected', 'connecting'
+            installPromptEvent: null,
+            isOnline: navigator.onLine
+        };
+
+        // ===== Real shared backend (Vercel API) =====
+        let authToken = localStorage.getItem('cp_token') || null;
+        let repUser = JSON.parse(localStorage.getItem('cp_user') || 'null');
+        let lastSnapshot = '';
+
+        async function api(path, options = {}) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (authToken) headers.Authorization = 'Bearer ' + authToken;
+            const res = await fetch(path, { ...options, headers });
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 401 && authToken) clearAuth();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        }
+
+        function clearAuth() {
+            authToken = null; repUser = null;
+            localStorage.removeItem('cp_token');
+            localStorage.removeItem('cp_user');
+            appState.user = null;
+            appState.userRole = 'student';
+            appState.currentView = 'dashboard';
+        }
+
+        function updateConnectionUI() {
+            const indicator = document.getElementById('connection-indicator');
+            const text = document.getElementById('connection-text');
+            if (!indicator || !text) return;
+            if (appState.connectionStatus === 'connected') {
+                indicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                text.textContent = "Live Synced";
+            } else {
+                indicator.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+                text.textContent = "Offline / Reconnecting";
+            }
+        }
+
+        async function loadAppData(silent = false) {
+            if (!silent) { appState.loading = true; renderApp(); }
+            try {
+                const d = await api('/api/data?date=' + appState.filters.date);
+                const snap = JSON.stringify(d);
+                if (silent && snap === lastSnapshot && appState.connectionStatus === 'connected') return;
+
+                appState.teachers = d.teachers || [];
+                appState.subjects = d.subjects || [];
+                appState.classes = d.classes || [];
+                appState.sessions = d.sessions || [];
+                appState.auditLogs = d.auditLogs || [];
+                appState.user = authToken ? repUser : null;
+                appState.userRole = authToken ? 'representative' : 'student';
+                appState.connectionStatus = 'connected';
+                appState.error = null;
+                appState.loading = false;
+                updateConnectionUI();
+
+                // Don't re-render while someone is typing / choosing from a dropdown
+                const tag = document.activeElement && document.activeElement.tagName;
+                if (silent && ['INPUT', 'SELECT', 'TEXTAREA'].includes(tag)) return;
+                lastSnapshot = snap;
+            } catch (err) {
+                console.error('Failed to load data:', err);
+                appState.connectionStatus = 'disconnected';
+                appState.loading = false;
+                updateConnectionUI();
+                if (silent) return;
+            }
+            renderApp();
+        }
+
+        // Auto-refresh so every device sees rep updates within a few seconds
+        setInterval(() => { if (!document.hidden) loadAppData(true); }, 5000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) loadAppData(true); });
+
+        function renderApp() {
+            const dateEl = document.getElementById('header-date');
+            if (dateEl) {
+                const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+                dateEl.textContent = new Date(appState.filters.date + 'T00:00:00').toLocaleDateString('en-US', options);
+            }
+
+            const authNav = document.getElementById('auth-nav-container');
+            if (authNav) {
+                if (appState.userRole === 'representative') {
+                    authNav.innerHTML = `
+                        <div class="flex items-center space-x-2">
+                            <button onclick="appState.currentView = 'admin'; renderApp();" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white hover:bg-sky-700 transition shadow-sm">
+                                <i class="fa-solid fa-gauge-high"></i>
+                                <span>Admin Panel</span>
+                            </button>
+                            <button onclick="handleSignOut()" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Sign Out">
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    authNav.innerHTML = `
+                        <button onclick="appState.currentView = 'login'; renderApp();" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white transition shadow-sm">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>Rep Login</span>
+                        </button>
+                    `;
+                }
+            }
+
+            const syncTimeEl = document.getElementById('footer-sync-time');
+            if (syncTimeEl) {
+                syncTimeEl.textContent = `Last synced: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            }
+
+            const container = document.getElementById('view-container');
+            if (!container) return;
+
+            if (appState.currentView === 'dashboard') {
+                container.innerHTML = renderStudentDashboard();
+            } else if (appState.currentView === 'login') {
+                container.innerHTML = renderLoginView();
+            } else if (appState.currentView === 'admin') {
+                if (appState.userRole !== 'representative') {
+                    appState.currentView = 'login';
+                    renderApp();
+                    return;
+                }
+                container.innerHTML = renderAdminDashboard();
+            } else if (appState.currentView === 'history') {
+                container.innerHTML = renderHistoryView();
+            } else if (appState.currentView === 'setup-guide') {
+                container.innerHTML = renderSetupGuideView();
+            }
+        }
+
+        function renderStudentDashboard() {
+            const todayClasses = appState.classes;
+            const totalScheduled = todayClasses.length;
+            
+            let confirmedCount = 0;
+            let arrivedCount = 0;
+            let delayedCount = 0;
+            let canceledCount = 0;
+            let pendingCount = 0;
+
+            const enrichedClasses = todayClasses.map(cls => {
+                const session = appState.sessions.find(s => s.class_id === cls.id);
+                const status = session ? session.status : 'scheduled';
+                const note = session ? session.note : '';
+                const updatedBy = session ? session.updated_by : '';
+                const updatedAt = session ? session.updated_at : '';
+
+                if (status === 'coming') confirmedCount++;
+                if (status === 'arrived') arrivedCount++;
+                if (status === 'delayed') delayedCount++;
+                if (status === 'absent' || status === 'canceled') canceledCount++;
+                if (status === 'scheduled') pendingCount++;
+
+                const teacher = appState.teachers.find(t => t.id === cls.teacher_id) || { name: 'Unknown Teacher' };
+                const subject = appState.subjects.find(s => s.id === cls.subject_id) || { name: 'Unknown Subject', code: '' };
+
+                return { ...cls, teacher, subject, status, note, updatedBy, updatedAt };
+            });
+
+            const filtered = enrichedClasses.filter(cls => {
+                if (appState.filters.status !== 'all' && cls.status !== appState.filters.status) return false;
+                if (appState.filters.teacher !== 'all' && cls.teacher_id !== appState.filters.teacher) return false;
+                if (appState.filters.subject !== 'all' && cls.subject_id !== appState.filters.subject) return false;
+                if (appState.filters.search) {
+                    const q = appState.filters.search.toLowerCase();
+                    const matchName = cls.teacher.name.toLowerCase().includes(q);
+                    const matchSubj = cls.subject.name.toLowerCase().includes(q) || cls.subject.code.toLowerCase().includes(q);
+                    const matchRoom = cls.room.toLowerCase().includes(q);
+                    if (!matchName && !matchSubj && !matchRoom) return false;
+                }
+                return true;
+            });
+
+            filtered.sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+            return `
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full flex flex-col space-y-8">
+                    
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                        <div>
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wider mb-1">
+                                <i class="fa-solid fa-calendar-day"></i>
+                                <span>Today's Academic Schedule</span>
+                            </div>
+                            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                                Student Attendance Dashboard
+                            </h1>
+                            <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">
+                                Check real-time teacher arrival status, delays, and room changes reported by class representatives.
+                            </p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <input type="date" value="${appState.filters.date}" onchange="updateDateFilter(this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <button onclick="loadAppData()" title="Refresh Data" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition text-slate-700 dark:text-slate-300">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                        <div onclick="setFilterStatus('all')" class="cursor-pointer bg-white dark:bg-slate-900 border ${appState.filters.status === 'all' ? 'border-sky-500 ring-2 ring-sky-500/20' : 'border-slate-200 dark:border-slate-800'} rounded-2xl p-4 transition hover:border-slate-300 dark:hover:border-slate-700">
+                            <div class="text-xs font-medium text-slate-500 dark:text-slate-400">Total Scheduled</div>
+                            <div class="text-2xl font-bold mt-1 text-slate-900 dark:text-slate-100">${totalScheduled}</div>
+                        </div>
+                        <div onclick="setFilterStatus('coming')" class="cursor-pointer bg-white dark:bg-slate-900 border ${appState.filters.status === 'coming' ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200 dark:border-slate-800'} rounded-2xl p-4 transition hover:border-slate-300 dark:hover:border-slate-700">
+                            <div class="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center space-x-1">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span>Confirmed Coming</span>
+                            </div>
+                            <div class="text-2xl font-bold mt-1 text-emerald-700 dark:text-emerald-300">${confirmedCount}</div>
+                        </div>
+                        <div onclick="setFilterStatus('arrived')" class="cursor-pointer bg-white dark:bg-slate-900 border ${appState.filters.status === 'arrived' ? 'border-teal-500 ring-2 ring-teal-500/20' : 'border-slate-200 dark:border-slate-800'} rounded-2xl p-4 transition hover:border-slate-300 dark:hover:border-slate-700">
+                            <div class="text-xs font-medium text-teal-600 dark:text-teal-400 flex items-center space-x-1">
+                                <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+                                <span>Arrived</span>
+                            </div>
+                            <div class="text-2xl font-bold mt-1 text-teal-700 dark:text-teal-300">${arrivedCount}</div>
+                        </div>
+                        <div onclick="setFilterStatus('delayed')" class="cursor-pointer bg-white dark:bg-slate-900 border ${appState.filters.status === 'delayed' ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-slate-200 dark:border-slate-800'} rounded-2xl p-4 transition hover:border-slate-300 dark:hover:border-slate-700">
+                            <div class="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center space-x-1">
+                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                <span>Delayed</span>
+                            </div>
+                            <div class="text-2xl font-bold mt-1 text-amber-700 dark:text-amber-300">${delayedCount}</div>
+                        </div>
+                        <div onclick="setFilterStatus('absent')" class="cursor-pointer bg-white dark:bg-slate-900 border ${appState.filters.status === 'absent' ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-200 dark:border-slate-800'} rounded-2xl p-4 transition hover:border-slate-300 dark:hover:border-slate-700">
+                            <div class="text-xs font-medium text-rose-600 dark:text-rose-400 flex items-center space-x-1">
+                                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                                <span>Absent / Canceled</span>
+                            </div>
+                            <div class="text-2xl font-bold mt-1 text-rose-700 dark:text-rose-300">${canceledCount}</div>
+                        </div>
+                        <div onclick="setFilterStatus('scheduled')" class="cursor-pointer bg-white dark:bg-slate-900 border ${appState.filters.status === 'scheduled' ? 'border-slate-400 ring-2 ring-slate-400/20' : 'border-slate-200 dark:border-slate-800'} rounded-2xl p-4 transition hover:border-slate-300 dark:hover:border-slate-700">
+                            <div class="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center space-x-1">
+                                <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                                <span>Pending Update</span>
+                            </div>
+                            <div class="text-2xl font-bold mt-1 text-slate-700 dark:text-slate-300">${pendingCount}</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div class="relative w-full md:w-96">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </span>
+                            <input type="text" value="${appState.filters.search}" oninput="updateSearchFilter(this.value)" placeholder="Search by teacher, subject, or room..." class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                            <select onchange="updateTeacherFilter(this.value)" class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+                                <option value="all">All Teachers</option>
+                                ${appState.teachers.map(t => `<option value="${t.id}" ${appState.filters.teacher === t.id ? 'selected' : ''}>${t.name}</option>`).join('')}
+                            </select>
+
+                            <select onchange="updateSubjectFilter(this.value)" class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+                                <option value="all">All Subjects</option>
+                                ${appState.subjects.map(s => `<option value="${s.id}" ${appState.filters.subject === s.id ? 'selected' : ''}>${s.code} - ${s.name}</option>`).join('')}
+                            </select>
+
+                            ${appState.filters.status !== 'all' || appState.filters.search || appState.filters.teacher !== 'all' || appState.filters.subject !== 'all' ? `
+                                <button onclick="resetFilters()" class="text-xs text-sky-600 dark:text-sky-400 font-medium hover:underline px-2 py-1">
+                                    Clear Filters
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center space-x-2">
+                                <i class="fa-solid fa-list-check text-sky-500"></i>
+                                <span>Today's Classes (${filtered.length})</span>
+                            </h2>
+                            <span class="text-xs text-slate-500 dark:text-slate-400">
+                                Note: Unconfirmed status does not mean absence. Reps update live.
+                            </span>
+                        </div>
+
+                        ${filtered.length === 0 ? `
+                            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center flex flex-col items-center justify-center space-y-3">
+                                <div class="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-2xl">
+                                    <i class="fa-solid fa-calendar-xmark"></i>
+                                </div>
+                                <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">No classes found</h3>
+                                <p class="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+                                    No classes match your selected filters or schedule for this date. Try clearing filters or picking another day.
+                                </p>
+                                <button onclick="resetFilters()" class="px-4 py-2 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 rounded-xl text-xs font-semibold hover:opacity-90 transition">
+                                    Reset Filters
+                                </button>
+                            </div>
+                        ` : `
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                ${filtered.map(cls => renderClassCard(cls)).join('')}
+                            </div>
+                        `}
+                    </div>
+
+                </div>
+            `;
+        }
+
+        function renderClassCard(cls) {
+            let badgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+            let badgeText = 'Scheduled (Pending)';
+            let badgeIcon = 'fa-clock';
+
+            if (cls.status === 'coming') {
+                badgeClass = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+                badgeText = 'Confirmed Coming';
+                badgeIcon = 'fa-circle-check';
+            } else if (cls.status === 'arrived') {
+                badgeClass = 'bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border-teal-200 dark:border-teal-800';
+                badgeText = 'Teacher Arrived';
+                badgeIcon = 'fa-user-check';
+            } else if (cls.status === 'delayed') {
+                badgeClass = 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+                badgeText = 'Delayed';
+                badgeIcon = 'fa-hourglass-half';
+            } else if (cls.status === 'absent') {
+                badgeClass = 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800';
+                badgeText = 'Teacher Absent';
+                badgeIcon = 'fa-user-xmark';
+            } else if (cls.status === 'canceled') {
+                badgeClass = 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300 border-red-200 dark:border-red-800';
+                badgeText = 'Class Canceled';
+                badgeIcon = 'fa-ban';
+            }
+
+            return `
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between transition hover:border-slate-300 dark:hover:border-slate-700">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
+                                <i class="fa-regular fa-clock text-sky-500"></i>
+                                <span>${cls.start_time} - ${cls.end_time}</span>
+                            </div>
+                            <div class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${badgeClass}">
+                                <i class="fa-solid ${badgeIcon}"></i>
+                                <span>${badgeText}</span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="text-xs font-semibold text-sky-600 dark:text-sky-400">${cls.subject.code}</div>
+                            <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">${cls.subject.name}</h3>
+                            <div class="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                <i class="fa-solid fa-location-dot"></i>
+                                <span>Room: <strong class="text-slate-700 dark:text-slate-300">${cls.room}</strong></span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 mb-3">
+                            <div class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-slate-300">
+                                ${cls.teacher.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-400">Teacher</div>
+                                <div class="text-sm font-semibold text-slate-800 dark:text-slate-200">${cls.teacher.name}</div>
+                            </div>
+                        </div>
+
+                        ${cls.note ? `
+                            <div class="bg-sky-50 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50 rounded-xl p-2.5 text-xs text-sky-800 dark:text-sky-300 mb-3 flex items-start space-x-2">
+                                <i class="fa-solid fa-circle-info mt-0.5 flex-shrink-0"></i>
+                                <div><strong>Note:</strong> ${cls.note}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-400">
+                        <span>Updated: ${cls.updatedAt ? new Date(cls.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}</span>
+                        <span class="italic">By ${cls.updatedBy || 'System'}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLoginView() {
+            return `
+                <div class="max-w-md mx-auto px-4 py-16 flex-grow flex flex-col justify-center w-full">
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-sm">
+                        <div class="text-center mb-6">
+                            <div class="w-12 h-12 rounded-2xl bg-sky-600 text-white flex items-center justify-center font-bold text-xl mx-auto mb-3 shadow-sm">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">Class Representative Portal</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Sign in to manage schedules and update live attendance status.</p>
+                        </div>
+
+                        <form onsubmit="handleLoginSubmit(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Representative Email</label>
+                                <input type="email" id="login-email" required placeholder="Enter username / email" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Password</label>
+                                <input type="password" id="login-password" required placeholder="Enter password" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+
+                            <div class="pt-2">
+                                <button type="submit" class="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl text-sm transition shadow-sm">
+                                    Sign In as Representative
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
+                            <button onclick="appState.currentView = 'dashboard'; renderApp();" class="text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline">
+                                &larr; Back to Student Dashboard
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAdminDashboard() {
+            const todayStr = appState.filters.date;
+            const enriched = appState.classes.map(cls => {
+                const session = appState.sessions.find(s => s.class_id === cls.id);
+                const status = session ? session.status : 'scheduled';
+                const note = session ? session.note : '';
+                const teacher = appState.teachers.find(t => t.id === cls.teacher_id) || { name: 'Unknown' };
+                const subject = appState.subjects.find(s => s.id === cls.subject_id) || { name: 'Unknown', code: '' };
+                return { ...cls, teacher, subject, status, note, sessionId: session ? session.id : null };
+            });
+
+            return `
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full flex flex-col space-y-8">
+                    
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-slate-900 text-white rounded-2xl p-6 shadow-md">
+                        <div>
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-sky-400 uppercase tracking-wider mb-1">
+                                <i class="fa-solid fa-shield-check"></i>
+                                <span>Authorized Representative Control Center</span>
+                            </div>
+                            <h1 class="text-2xl font-bold tracking-tight">Admin & Attendance Management</h1>
+                            <p class="text-slate-400 text-sm mt-1">
+                                Logged in as: <strong class="text-white">${appState.user ? appState.user.email : 'Alex Miller'}</strong>. Changes broadcast instantly to students.
+                            </p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button onclick="openAddClassModal()" class="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl text-xs transition shadow-sm flex items-center space-x-2">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>Add Class</span>
+                            </button>
+                            <button onclick="openManageTeachersModal()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition border border-slate-700 flex items-center space-x-2">
+                                <i class="fa-solid fa-chalkboard-user"></i>
+                                <span>Manage Teachers</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">Live Class Status Management</h2>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Quickly update teacher arrival or cancellation for today (${todayStr}).</p>
+                            </div>
+                            <input type="date" value="${todayStr}" onchange="updateDateFilter(this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-sm font-medium">
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
+                                        <th class="py-3 px-4">Time</th>
+                                        <th class="py-3 px-4">Subject & Room</th>
+                                        <th class="py-3 px-4">Teacher</th>
+                                        <th class="py-3 px-4">Current Status</th>
+                                        <th class="py-3 px-4">Quick Update Actions & Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                                    ${enriched.map(cls => `
+                                        <tr>
+                                            <td class="py-4 px-4 font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                                                ${cls.start_time} - ${cls.end_time}
+                                            </td>
+                                            <td class="py-4 px-4">
+                                                <div class="font-bold text-slate-900 dark:text-slate-100">${cls.subject.name}</div>
+                                                <div class="text-xs text-slate-500">Room: ${cls.room} (${cls.subject.code})</div>
+                                            </td>
+                                            <td class="py-4 px-4 font-medium text-slate-800 dark:text-slate-200">
+                                                ${cls.teacher.name}
+                                            </td>
+                                            <td class="py-4 px-4 whitespace-nowrap">
+                                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold 
+                                                    ${cls.status === 'coming' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : ''}
+                                                    ${cls.status === 'arrived' ? 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300' : ''}
+                                                    ${cls.status === 'delayed' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : ''}
+                                                    ${cls.status === 'absent' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300' : ''}
+                                                    ${cls.status === 'canceled' ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300' : ''}
+                                                    ${cls.status === 'scheduled' ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' : ''}">
+                                                    ${cls.status.toUpperCase()}
+                                                </span>
+                                            </td>
+                                            <td class="py-4 px-4">
+                                                <div class="flex items-center space-x-2">
+                                                    <select onchange="updateClassStatus('${cls.id}', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500">
+                                                        <option value="scheduled" ${cls.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
+                                                        <option value="coming" ${cls.status === 'coming' ? 'selected' : ''}>Coming</option>
+                                                        <option value="arrived" ${cls.status === 'arrived' ? 'selected' : ''}>Arrived</option>
+                                                        <option value="delayed" ${cls.status === 'delayed' ? 'selected' : ''}>Delayed</option>
+                                                        <option value="absent" ${cls.status === 'absent' ? 'selected' : ''}>Absent</option>
+                                                        <option value="canceled" ${cls.status === 'canceled' ? 'selected' : ''}>Canceled</option>
+                                                    </select>
+                                                    <button onclick="openNoteModal('${cls.id}', '${(cls.note || '').replace(/'/g, "\\'")}')" title="Add / Edit Note" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs">
+                                                        <i class="fa-solid fa-note-sticky"></i>
+                                                    </button>
+                                                </div>
+                                                ${cls.note ? `<div class="text-[11px] text-sky-600 dark:text-sky-400 mt-1 truncate max-w-xs">Note: ${cls.note}</div>` : ''}
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            `;
+        }
+
+        function renderSetupGuideView() {
+            return `
+                <div class="max-w-4xl mx-auto px-4 py-12 flex-grow w-full space-y-8">
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-sm space-y-6">
+                        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+                            <div>
+                                <span class="text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wider">Deployment & Integration</span>
+                                <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">Setup Guide</h1>
+                            </div>
+                            <button onclick="appState.currentView = 'dashboard'; renderApp();" class="text-xs font-medium text-sky-600 hover:underline">
+                                &larr; Back to App
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function setFilterStatus(status) {
+            appState.filters.status = appState.filters.status === status ? 'all' : status;
+            renderApp();
+        }
+
+        function updateSearchFilter(val) {
+            appState.filters.search = val;
+            renderApp();
+        }
+
+        function updateTeacherFilter(val) {
+            appState.filters.teacher = val;
+            renderApp();
+        }
+
+        function updateSubjectFilter(val) {
+            appState.filters.subject = val;
+            renderApp();
+        }
+
+        function updateDateFilter(val) {
+            appState.filters.date = val;
+            loadAppData();
+        }
+
+        function resetFilters() {
+            appState.filters.status = 'all';
+            appState.filters.search = '';
+            appState.filters.teacher = 'all';
+            appState.filters.subject = 'all';
+            renderApp();
+        }
+
+        async function handleLoginSubmit(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            try {
+                const d = await api('/api/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+                authToken = d.token; repUser = d.user;
+                localStorage.setItem('cp_token', authToken);
+                localStorage.setItem('cp_user', JSON.stringify(repUser));
+                appState.user = repUser;
+                appState.userRole = 'representative';
+                appState.currentView = 'admin';
+                showToast('Successfully signed in as Class Representative!', 'success');
+                renderApp();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function handleSignOut() {
+            clearAuth();
+            showToast('Signed out successfully.', 'info');
+            renderApp();
+        }
+
+        async function updateClassStatus(classId, newStatus) {
+            try {
+                await api('/api/data', { method: 'POST', body: JSON.stringify({
+                    action: 'setSession', class_id: classId, date: appState.filters.date, status: newStatus
+                })});
+                showToast(`Status updated to ${newStatus.toUpperCase()} successfully!`, 'success');
+                loadAppData();
+            } catch (err) { showToast(err.message, 'error'); renderApp(); }
+        }
+
+        function openNoteModal(classId, currentNote) {
+            const modalContainer = document.getElementById('modal-container');
+            modalContainer.innerHTML = `
+                <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">Add Class Status Note</h3>
+                            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                        </div>
+                        <p class="text-xs text-slate-500">Provide any specific details (e.g. "Arriving 15 mins late in Room 302").</p>
+                        <textarea id="class-note-input" rows="3" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">${currentNote}</textarea>
+                        <div class="flex justify-end space-x-3 pt-2">
+                            <button onclick="closeModal()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold">Cancel</button>
+                            <button onclick="saveClassNote('${classId}')" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-semibold">Save Note</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveClassNote(classId) {
+            const note = document.getElementById('class-note-input').value;
+            try {
+                await api('/api/data', { method: 'POST', body: JSON.stringify({
+                    action: 'setSession', class_id: classId, date: appState.filters.date, note
+                })});
+                closeModal();
+                showToast('Note saved successfully!', 'success');
+                loadAppData();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function openAddClassModal() {
+            const modalContainer = document.getElementById('modal-container');
+            modalContainer.innerHTML = `
+                <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">Add New Class Schedule</h3>
+                            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                        </div>
+                        <form onsubmit="handleAddClassSubmit(event)" class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-semibold mb-1">Subject</label>
+                                <select id="new-class-subject" required class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-sm">
+                                    ${appState.subjects.map(s => `<option value="${s.id}">${s.code} - ${s.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold mb-1">Teacher</label>
+                                <select id="new-class-teacher" required class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-sm">
+                                    ${appState.teachers.map(t => `<option value="${t.id}">${t.name} (${t.department})</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold mb-1">Start Time</label>
+                                    <input type="time" id="new-class-start" required value="09:00" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold mb-1">End Time</label>
+                                    <input type="time" id="new-class-end" required value="10:30" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-sm">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold mb-1">Room / Location</label>
+                                <input type="text" id="new-class-room" required placeholder="e.g. Hall A2" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-sm">
+                            </div>
+                            <div class="flex justify-end space-x-3 pt-3">
+                                <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold">Cancel</button>
+                                <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-semibold">Add Class</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function handleAddClassSubmit(e) {
+            e.preventDefault();
+            try {
+                await api('/api/data', { method: 'POST', body: JSON.stringify({
+                    action: 'addClass',
+                    subject_id: document.getElementById('new-class-subject').value,
+                    teacher_id: document.getElementById('new-class-teacher').value,
+                    start_time: document.getElementById('new-class-start').value,
+                    end_time: document.getElementById('new-class-end').value,
+                    room: document.getElementById('new-class-room').value
+                })});
+                closeModal();
+                showToast('Class added successfully!', 'success');
+                loadAppData();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function openManageTeachersModal() {
+            const modalContainer = document.getElementById('modal-container');
+            modalContainer.innerHTML = `
+                <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">Manage Teachers</h3>
+                            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                        </div>
+                        <div class="space-y-3">
+                            ${appState.teachers.map(t => `
+                                <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-sm">
+                                    <div>
+                                        <div class="font-bold text-slate-800 dark:text-slate-200">${t.name}</div>
+                                        <div class="text-xs text-slate-500">${t.department} (${t.email})</div>
+                                    </div>
+                                    <button onclick="deleteTeacher('${t.id}')" class="text-rose-500 hover:text-rose-700 text-xs p-1.5"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="border-t border-slate-200 dark:border-slate-800 pt-4 mt-4">
+                            <h4 class="text-sm font-bold mb-2">Add New Teacher</h4>
+                            <form onsubmit="handleAddTeacherSubmit(event)" class="space-y-3">
+                                <input type="text" id="new-teacher-name" required placeholder="Full Name (e.g. Dr. Alan Turing)" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-sm">
+                                <input type="text" id="new-teacher-dept" required placeholder="Department (e.g. Computer Science)" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-sm">
+                                <input type="email" id="new-teacher-email" required placeholder="Email Address" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-sm">
+                                <div class="flex justify-end space-x-3 pt-2">
+                                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold">Close</button>
+                                    <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-semibold">Add Teacher</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function handleAddTeacherSubmit(e) {
+            e.preventDefault();
+            try {
+                await api('/api/data', { method: 'POST', body: JSON.stringify({
+                    action: 'addTeacher',
+                    name: document.getElementById('new-teacher-name').value,
+                    department: document.getElementById('new-teacher-dept').value,
+                    email: document.getElementById('new-teacher-email').value
+                })});
+                showToast('Teacher added successfully!', 'success');
+                await loadAppData();
+                openManageTeachersModal();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function deleteTeacher(id) {
+            try {
+                await api('/api/data', { method: 'POST', body: JSON.stringify({ action: 'deleteTeacher', id }) });
+                showToast('Teacher removed.', 'success');
+                await loadAppData();
+                openManageTeachersModal();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function openSetupGuideModal() {
+            // Setup guide removed
+        }
+
+        function closeModal() {
+            const modalContainer = document.getElementById('modal-container');
+            if (modalContainer) modalContainer.innerHTML = '';
+        }
+
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) return;
+
+            const id = 'toast_' + Math.random().toString(36).substring(2, 9);
+            const bgClass = type === 'error' ? 'bg-rose-600 text-white' : (type === 'success' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white');
+
+            const toast = document.createElement('div');
+            toast.id = id;
+            toast.className = `${bgClass} px-4 py-3 rounded-xl text-xs font-medium shadow-lg pointer-events-auto flex items-center space-x-2 transition transform translate-y-2 opacity-0`;
+            toast.innerHTML = `
+                <i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : (type === 'success' ? 'fa-circle-check' : 'fa-circle-info')}"></i>
+                <span>${message}</span>
+            `;
+
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('cp_theme', 'light');
+                if (icon) icon.className = 'fa-solid fa-moon';
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('cp_theme', 'dark');
+                if (icon) icon.className = 'fa-solid fa-sun';
+            }
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            appState.installPromptEvent = e;
+            const installBtn = document.getElementById('install-btn');
+            if (installBtn) {
+                installBtn.classList.remove('hidden');
+                installBtn.classList.add('flex');
+            }
+        });
+
+        async function installPWA() {
+            if (appState.installPromptEvent) {
+                appState.installPromptEvent.prompt();
+                const result = await appState.installPromptEvent.userChoice;
+                if (result.outcome === 'accepted') {
+                    showToast('ClassPulse installed successfully!', 'success');
+                }
+                appState.installPromptEvent = null;
+                const installBtn = document.getElementById('install-btn');
+                if (installBtn) installBtn.classList.add('hidden');
+            } else {
+                showToast('To install, open your browser settings and select "Add to Home Screen".', 'info');
+            }
+        }
+
+        window.onload = function() {
+            const savedTheme = localStorage.getItem('cp_theme') || 'light';
+            const icon = document.getElementById('theme-icon');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+                if (icon) icon.className = 'fa-solid fa-sun';
+            } else {
+                document.documentElement.classList.remove('dark');
+                if (icon) icon.className = 'fa-solid fa-moon';
+            }
+
+            loadAppData();
+        };
+    </script>
+</body>
+</html>
